@@ -1,20 +1,22 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../hooks/useAppContext';
-import { Logo } from '../constants';
+import { Logo, EyeIcon, EyeSlashIcon } from '../constants';
 
 const Login = () => {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  const { login, users } = useAppContext();
+  const { login } = useAppContext();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (login(email)) {
+    if (login(email, password)) {
       navigate('/');
     } else {
-      setError('Email tidak valid atau pengguna tidak aktif.');
+      setError('Email atau kata sandi salah, atau akun tidak aktif.');
     }
   };
 
@@ -52,6 +54,39 @@ const Login = () => {
               />
             </div>
           </div>
+          <div>
+            <label htmlFor="password" className="text-sm font-medium text-text-primary">
+              Kata Sandi
+            </label>
+            <div className="mt-1 relative">
+              <input
+                id="password"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError('');
+                }}
+                className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary sm:text-sm pr-10"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5"
+                aria-label={showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
+              >
+                {showPassword ? (
+                    <EyeSlashIcon className="h-5 w-5 text-gray-500" />
+                ) : (
+                    <EyeIcon className="h-5 w-5 text-gray-500" />
+                )}
+              </button>
+            </div>
+          </div>
           {error && <p className="text-sm text-red-600 text-center">{error}</p>}
           <div>
             <button
@@ -62,17 +97,6 @@ const Login = () => {
             </button>
           </div>
         </form>
-         <div className="text-center text-xs text-gray-500 pt-4 border-t border-border">
-            <p className="font-semibold mb-2">Gunakan Akun Demo:</p>
-            <div className="space-y-1">
-            {users.filter(u => u.isActive).map(u => (
-                <div key={u.id}>
-                    <button onClick={() => setEmail(u.email)} className="text-primary hover:underline font-medium">{u.email}</button> 
-                    <span className="text-gray-400"> ({u.role})</span>
-                </div>
-            ))}
-            </div>
-        </div>
       </div>
     </div>
   );

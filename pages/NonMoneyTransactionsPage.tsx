@@ -3,6 +3,42 @@ import { useAppContext } from '../hooks/useAppContext';
 import { Transaction, TransactionNature, TransactionType, Role } from '../types';
 import { EditIcon, DeleteIcon, SearchIcon, ExportIcon } from '../constants';
 
+interface ConfirmationModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+    title: string;
+    message: string;
+}
+
+const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ isOpen, onClose, onConfirm, title, message }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4">
+            <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+                <div className="flex flex-col items-center text-center">
+                     <div className="p-3 rounded-full bg-red-100 mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-red-600">
+                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                        </svg>
+                    </div>
+                    <h2 className="text-xl font-bold text-text-primary">{title}</h2>
+                    <p className="text-text-secondary mt-2 mb-6">{message}</p>
+                    <div className="flex justify-center gap-3 w-full">
+                        <button onClick={onClose} className="flex-1 px-4 py-2.5 bg-slate-200 text-slate-800 rounded-lg hover:bg-slate-300 font-semibold">
+                            Batal
+                        </button>
+                        <button onClick={onConfirm} className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">
+                            Hapus
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const NonMoneyTransactionModal = ({ isOpen, onClose, onSave, transactionToEdit }: {
     isOpen: boolean;
     onClose: () => void;
@@ -183,6 +219,8 @@ const NonMoneyTransactionsPage = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+    const [transactionToDelete, setTransactionToDelete] = useState<string | null>(null);
 
     const pageTitle = 'Pemasukan Non-Uang (Barang)';
 
@@ -216,10 +254,17 @@ const NonMoneyTransactionsPage = () => {
         handleCloseModal();
     };
 
-    const handleDeleteTransaction = (transactionId: string) => {
-        if (window.confirm('Apakah Anda yakin ingin menghapus data ini?')) {
-            deleteTransaction(transactionId);
+    const handleDeleteRequest = (transactionId: string) => {
+        setTransactionToDelete(transactionId);
+        setIsConfirmModalOpen(true);
+    };
+
+    const handleConfirmDelete = () => {
+        if (transactionToDelete) {
+            deleteTransaction(transactionToDelete);
         }
+        setIsConfirmModalOpen(false);
+        setTransactionToDelete(null);
     };
     
     const getBranchName = (id: string) => branches.find(b => b.id === id)?.name || 'N/A';
@@ -317,7 +362,7 @@ const NonMoneyTransactionsPage = () => {
                                     <td className="px-4 py-3 text-center">
                                         <div className="flex justify-center items-center space-x-2">
                                             <button onClick={() => handleOpenModal(t)} className="text-blue-600 hover:text-blue-800 p-1"><EditIcon className="w-5 h-5" /></button>
-                                            <button onClick={() => handleDeleteTransaction(t.id)} className="text-red-600 hover:text-red-800 p-1"><DeleteIcon className="w-5 h-5" /></button>
+                                            <button onClick={() => handleDeleteRequest(t.id)} className="text-red-600 hover:text-red-800 p-1"><DeleteIcon className="w-5 h-5" /></button>
                                         </div>
                                     </td>
                                 </tr>
@@ -338,6 +383,13 @@ const NonMoneyTransactionsPage = () => {
                 onClose={handleCloseModal}
                 onSave={handleSaveTransaction}
                 transactionToEdit={editingTransaction}
+            />
+             <ConfirmationModal
+                isOpen={isConfirmModalOpen}
+                onClose={() => setIsConfirmModalOpen(false)}
+                onConfirm={handleConfirmDelete}
+                title="Konfirmasi Hapus"
+                message="Apakah Anda yakin ingin menghapus data ini? Tindakan ini tidak dapat diurungkan."
             />
         </>
     );

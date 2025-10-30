@@ -9,7 +9,7 @@ interface AppContextType {
   transactions: Transaction[];
   allTransactions: Transaction[];
   categories: Category[];
-  login: (email: string) => boolean;
+  login: (email: string, password: string) => boolean;
   logout: () => void;
   addTransaction: (transaction: Omit<Transaction, 'id' | 'createdBy' | 'lastEditedBy'>) => void;
   updateTransaction: (transaction: Transaction) => void;
@@ -40,8 +40,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [transactionsData, setTransactionsData] = useState<Transaction[]>(TRANSACTIONS);
   const [categories, setCategories] = useState<Category[]>(CATEGORIES);
 
-  const login = useCallback((email: string): boolean => {
-    const user = users.find(u => u.email === email && u.isActive);
+  const login = useCallback((email: string, password: string): boolean => {
+    const user = users.find(u => u.email === email && u.password === password && u.isActive);
     if (user) {
       setCurrentUser(user);
       localStorage.setItem('currentUser', JSON.stringify(user));
