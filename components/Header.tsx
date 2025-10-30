@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAppContext } from '../hooks/useAppContext';
-import { SearchIcon, BellIcon, ChevronDownIcon, LogoutIcon, MenuIcon } from '../constants';
+import { SearchIcon, BellIcon, ChevronDownIcon, LogoutIcon, MenuIcon, UserIcon } from '../constants';
 
 const Header = ({ toggleSidebar }: { toggleSidebar: () => void }) => {
-    const { currentUser, logout } = useAppContext();
+    const { currentUser, logout, resetData } = useAppContext();
     const [dropdownOpen, setDropdownOpen] = useState(false);
 
     return (
@@ -49,8 +50,32 @@ const Header = ({ toggleSidebar }: { toggleSidebar: () => void }) => {
                             className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl py-1 z-50 ring-1 ring-black ring-opacity-5"
                             onMouseLeave={() => setDropdownOpen(false)}
                         >
+                            <Link
+                                to="/profile"
+                                onClick={() => setDropdownOpen(false)}
+                                className="w-full text-left flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-slate-100 transition-colors"
+                            >
+                                <UserIcon className="w-5 h-5 mr-2" />
+                                Profil Saya
+                            </Link>
+                             <button
+                                onClick={() => {
+                                    resetData();
+                                    setDropdownOpen(false);
+                                }}
+                                className="w-full text-left flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                                </svg>
+                                Reset Data
+                            </button>
+                            <div className="border-t my-1 border-slate-100"></div>
                             <button
-                                onClick={logout}
+                                onClick={() => {
+                                    logout();
+                                    setDropdownOpen(false);
+                                }}
                                 className="w-full text-left flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-slate-100 transition-colors"
                             >
                                 <LogoutIcon className="w-5 h-5 mr-2" />

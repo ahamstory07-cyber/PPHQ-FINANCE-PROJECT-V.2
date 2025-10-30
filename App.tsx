@@ -13,6 +13,7 @@ import Branches from './pages/Branches';
 import CashFlow from './pages/CashFlow';
 import { TransactionNature, TransactionType, Role } from './types';
 import BranchTransactions from './pages/BranchTransactions';
+import ProfilePage from './pages/ProfilePage'; // Import halaman baru
 
 const PrivateLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -57,6 +58,7 @@ function App() {
       >
         <Route index element={<Dashboard />} />
         <Route path="cash-flow" element={<CashFlow />} />
+        <Route path="profile" element={<ProfilePage />} /> {/* Tambahkan rute profil */}
 
         {/* BranchUser specific routes */}
         {currentUser?.role === Role.BranchUser && (

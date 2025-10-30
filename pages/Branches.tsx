@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../hooks/useAppContext';
-import { EditIcon } from '../constants';
+import { EditIcon, DeleteIcon } from '../constants';
 import { Branch, User, Role } from '../types';
 
 type EditingData = {
@@ -126,12 +126,49 @@ const ManagementModal = ({ isOpen, onClose, onSave, data, isAdding }: {
     );
 };
 
+const ConfirmationModal = ({ isOpen, onClose, onConfirm, branchName }: {
+    isOpen: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+    branchName: string;
+}) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4">
+            <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+                <div className="flex flex-col items-center text-center">
+                    <div className="p-3 rounded-full bg-red-100 mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-red-600">
+                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                        </svg>
+                    </div>
+                    <h2 className="text-xl font-bold text-text-primary">Konfirmasi Hapus</h2>
+                    <p className="text-text-secondary mt-2 mb-6">
+                        Apakah Anda yakin ingin menghapus <strong>{branchName}</strong> beserta akun penggunanya? Tindakan ini tidak dapat diurungkan.
+                    </p>
+                    <div className="flex justify-center gap-3 w-full">
+                        <button onClick={onClose} className="flex-1 px-4 py-2.5 bg-slate-200 text-slate-800 rounded-lg hover:bg-slate-300 font-semibold">
+                            Batal
+                        </button>
+                        <button onClick={onConfirm} className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">
+                            Ya, Hapus
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 const Branches = () => {
-    const { branches, users, addBranch, updateBranch, addUser, updateUser } = useAppContext();
+    const { branches, users, addBranch, updateBranch, addUser, updateUser, deleteBranchAndUser } = useAppContext();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
     const [editingData, setEditingData] = useState<EditingData | null>(null);
+    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+    const [branchToDelete, setBranchToDelete] = useState<Branch | null>(null);
 
     const getBranchUser = (branchId: string) => {
         return users.find(u => u.branchId === branchId);
@@ -154,6 +191,19 @@ const Branches = () => {
         setIsModalOpen(false);
         setEditingData(null);
         setIsAdding(false);
+    };
+
+    const handleDeleteRequest = (branch: Branch) => {
+        setBranchToDelete(branch);
+        setIsConfirmModalOpen(true);
+    };
+
+    const handleConfirmDelete = () => {
+        if (branchToDelete) {
+            deleteBranchAndUser(branchToDelete.id);
+        }
+        setIsConfirmModalOpen(false);
+        setBranchToDelete(null);
     };
 
     const handleSave = (formData: any) => {
@@ -240,9 +290,14 @@ const Branches = () => {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-center">
-                                            <button onClick={() => handleOpenEditModal(b)} className="text-blue-600 hover:text-blue-800">
-                                                <EditIcon className="w-5 h-5"/>
-                                            </button>
+                                            <div className="flex items-center justify-center gap-2">
+                                                <button onClick={() => handleOpenEditModal(b)} className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-100">
+                                                    <EditIcon className="w-5 h-5"/>
+                                                </button>
+                                                <button onClick={() => handleDeleteRequest(b)} className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-100">
+                                                    <DeleteIcon className="w-5 h-5"/>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 );
@@ -258,6 +313,12 @@ const Branches = () => {
                 onSave={handleSave}
                 data={editingData}
                 isAdding={isAdding}
+            />
+            <ConfirmationModal 
+                isOpen={isConfirmModalOpen}
+                onClose={() => setIsConfirmModalOpen(false)}
+                onConfirm={handleConfirmDelete}
+                branchName={branchToDelete?.name || ''}
             />
         </>
     );
