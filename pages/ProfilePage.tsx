@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../hooks/useAppContext';
 import { UserIcon } from '../constants';
@@ -20,7 +19,7 @@ const ProfilePage = () => {
         }
     }, [currentUser]);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setSuccess('');
@@ -35,9 +34,16 @@ const ProfilePage = () => {
                 ...currentUser,
                 name,
                 email,
-                password: password ? password : currentUser.password,
+                // Only include password if it's being changed
+                ...(password && { password: password }),
             };
-            updateUser(updatedUser);
+            // The password from context is removed before sending
+            delete updatedUser.password;
+            if (password) {
+                updatedUser.password = password;
+            }
+
+            await updateUser(updatedUser);
             setSuccess('Profil berhasil diperbarui!');
             setPassword('');
             setConfirmPassword('');

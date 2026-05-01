@@ -59,8 +59,8 @@ const Header = ({ toggleSidebar }: { toggleSidebar: () => void }) => {
                                 Profil Saya
                             </Link>
                              <button
-                                onClick={() => {
-                                    resetData();
+                                onClick={async () => {
+                                    await resetData();
                                     setDropdownOpen(false);
                                 }}
                                 className="w-full text-left flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"

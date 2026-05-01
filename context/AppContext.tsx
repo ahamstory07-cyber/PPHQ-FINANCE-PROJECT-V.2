@@ -1,200 +1,259 @@
-import React, { createContext, useState, ReactNode, useMemo, useCallback, useEffect } from 'react';
-import { User, Branch, Transaction, Role, Category, TransactionType } from '../types';
-import { USERS, BRANCHES, TRANSACTIONS, CATEGORIES } from '../constants';
+import React, { createContext, useState, useEffect, ReactNode, useCallback, PropsWithChildren, useMemo } from 'react';
+import { AppContextType, User, Branch, Category, Transaction, Role, TransactionType, TransactionNature } from '../types';
 
-// Kunci untuk localStorage
-const LS_KEYS = {
-  USERS: 'pphq_users',
-  BRANCHES: 'pphq_branches',
-  TRANSACTIONS: 'pphq_transactions',
-  CATEGORIES: 'pphq_categories',
-  CURRENT_USER: 'currentUser'
-};
+// IMPORTANT: Replace this URL with your actual deployed Google Apps Script web app URL.
+// It's recommended to store this in an environment variable, e.g., import.meta.env.VITE_APP_SCRIPT_URL
+const APP_SCRIPT_URL = (import.meta as any).env?.VITE_APP_SCRIPT_URL || 'YOUR_GOOGLE_APP_SCRIPT_WEB_APP_URL';
 
-interface AppContextType {
-  currentUser: User | null;
-  users: User[];
-  branches: Branch[];
-  transactions: Transaction[];
-  allTransactions: Transaction[];
-  categories: Category[];
-  login: (email: string, password: string) => boolean;
-  logout: () => void;
-  resetData: () => void;
-  addTransaction: (transaction: Omit<Transaction, 'id' | 'createdBy' | 'lastEditedBy'>) => void;
-  updateTransaction: (transaction: Transaction) => void;
-  deleteTransaction: (transactionId: string) => void;
-  addCategory: (category: Omit<Category, 'id'>) => void;
-  updateCategory: (category: Category) => void;
-  deleteCategory: (categoryId: string) => void;
-  addBranch: (branch: Omit<Branch, 'id'>) => Branch;
-  updateBranch: (branch: Branch) => void;
-  addUser: (user: Omit<User, 'id' | 'lastLogin'>) => void;
-  updateUser: (user: User) => void;
-  deleteBranchAndUser: (branchId: string) => void; // Tambahkan fungsi hapus
-}
-
-export const AppContext = createContext<AppContextType | null>(null);
-
-type AppProviderProps = {
-  children: ReactNode;
-};
-
-// Helper untuk mendapatkan state awal dari localStorage atau data default
-const getInitialState = <T,>(key: string, initialData: T): T => {
+// This helper function standardizes API calls to your Google Apps Script backend.
+// Your Apps Script should be set up to receive a POST request with a JSON body
+// containing an `action` and an optional `payload`.
+const callApi = async (action: string, payload?: any) => {
     try {
-        const item = window.localStorage.getItem(key);
-        return item ? JSON.parse(item) : initialData;
+        // In a real app, you might include an auth token for security
+        const response = await fetch(APP_SCRIPT_URL, {
+            method: 'POST',
+            // Using 'text/plain' is often more reliable with Apps Script web apps
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action, payload }),
+            redirect: 'follow', // Follow redirects, which Apps Script might do
+        });
+
+        if (!response.ok) {
+            throw new Error(`API call failed with status ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        if (result.status === 'error') {
+            throw new Error(result.message || 'An unknown API error occurred.');
+        }
+
+        return result.data;
     } catch (error) {
-        console.error(`Error reading from localStorage key “${key}”:`, error);
-        return initialData;
+        console.error(`API Error on action "${action}":`, error);
+        alert(`Terjadi kesalahan pada server saat melakukan aksi: ${action}. Lihat konsol untuk detail.`);
+        throw error;
     }
 };
 
-export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(() => getInitialState(LS_KEYS.CURRENT_USER, null));
-  const [users, setUsers] = useState<User[]>(() => getInitialState(LS_KEYS.USERS, USERS));
-  const [branches, setBranches] = useState<Branch[]>(() => getInitialState(LS_KEYS.BRANCHES, BRANCHES));
-  const [transactionsData, setTransactionsData] = useState<Transaction[]>(() => getInitialState(LS_KEYS.TRANSACTIONS, TRANSACTIONS));
-  const [categories, setCategories] = useState<Category[]>(() => getInitialState(LS_KEYS.CATEGORIES, CATEGORIES));
+const defaultContextValue: AppContextType = {
+  currentUser: null,
+  isLoading: true,
+  users: [],
+  branches: [],
+  categories: [],
+  transactions: [],
+  allTransactions: [],
+  login: async () => false,
+  logout: () => {},
+  resetData: async () => {},
+  updateUser: async () => {},
+  addTransaction: async () => {},
+  updateTransaction: async () => {},
+  deleteTransaction: async () => {},
+  addCategory: async () => {},
+  updateCategory: async () => {},
+  deleteCategory: async () => {},
+  addBranch: async () => {},
+  updateBranch: async () => {},
+  deleteBranch: async () => {},
+  addUser: async () => {},
+  updateUserByAdmin: async () => {},
+  deleteUser: async () => {},
+};
 
-  // Efek untuk menyimpan perubahan state ke localStorage
-  useEffect(() => { localStorage.setItem(LS_KEYS.CURRENT_USER, JSON.stringify(currentUser)); }, [currentUser]);
-  useEffect(() => { localStorage.setItem(LS_KEYS.USERS, JSON.stringify(users)); }, [users]);
-  useEffect(() => { localStorage.setItem(LS_KEYS.BRANCHES, JSON.stringify(branches)); }, [branches]);
-  useEffect(() => { localStorage.setItem(LS_KEYS.TRANSACTIONS, JSON.stringify(transactionsData)); }, [transactionsData]);
-  useEffect(() => { localStorage.setItem(LS_KEYS.CATEGORIES, JSON.stringify(categories)); }, [categories]);
+export const AppContext = createContext<AppContextType>(defaultContextValue);
 
-  const login = useCallback((email: string, password: string): boolean => {
-    const user = users.find(u => u.email === email && u.password === password && u.isActive);
-    if (user) {
-      setCurrentUser(user);
-      return true;
-    }
-    return false;
-  }, [users]);
+export const AppProvider = ({ children }: PropsWithChildren) => {
+    const [isLoading, setIsLoading] = useState(true);
+    const [currentUser, setCurrentUser] = useState<User | null>(() => {
+        const storedUser = localStorage.getItem('currentUser');
+        return storedUser ? JSON.parse(storedUser) : null;
+    });
+    
+    const [users, setUsers] = useState<User[]>([]);
+    const [branches, setBranches] = useState<Branch[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
 
-  const logout = useCallback(() => {
-    setCurrentUser(null);
-  }, []);
+    useEffect(() => {
+        const fetchInitialData = async () => {
+            if (currentUser) {
+                setIsLoading(true);
+                try {
+                    const data = await callApi('getAllData');
+                    setUsers(data.users || []);
+                    setBranches(data.branches || []);
+                    setCategories(data.categories || []);
+                    setAllTransactions(data.allTransactions || []);
+                } catch (error) {
+                    console.error("Could not load initial application data.", error);
+                    alert("Gagal memuat data aplikasi. Silakan coba login kembali.");
+                    logout(); // Force logout on data fetch failure
+                } finally {
+                    setIsLoading(false);
+                }
+            } else {
+                setIsLoading(false);
+            }
+        };
 
-  const resetData = useCallback(() => {
-      if(window.confirm('Apakah Anda yakin ingin mereset semua data ke kondisi awal? Semua perubahan akan hilang.')) {
-        Object.values(LS_KEYS).forEach(key => localStorage.removeItem(key));
-        window.location.reload();
-      }
-  }, []);
+        fetchInitialData();
+    }, [currentUser]); // Re-fetch data if the user logs in/out
 
-  const addTransaction = useCallback((transactionData: Omit<Transaction, 'id' | 'createdBy' | 'lastEditedBy'>) => {
-    if (!currentUser) return;
-    const newTransaction: Transaction = {
-      id: `t${Date.now()}-${Math.random()}`,
-      ...transactionData,
-      createdBy: currentUser.id,
-      lastEditedBy: currentUser.id,
-    };
-    setTransactionsData(prev => [newTransaction, ...prev]);
-  }, [currentUser]);
+    useEffect(() => {
+        if(currentUser) {
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        } else {
+            localStorage.removeItem('currentUser');
+        }
+    }, [currentUser]);
 
-  const updateTransaction = useCallback((updatedTransaction: Transaction) => {
-    if (!currentUser) return;
-    setTransactionsData(prev => prev.map(t => 
-        t.id === updatedTransaction.id 
-        ? { ...updatedTransaction, lastEditedBy: currentUser.id } 
-        : t
-    ));
-  }, [currentUser]);
+    const login = useCallback(async (email: string, password: string): Promise<boolean> => {
+        setIsLoading(true);
+        try {
+            const data = await callApi('login', { email, password });
+            if (data.user && data.user.isActive) {
+                setCurrentUser(data.user);
+                return true;
+            }
+            return false;
+        } catch (error) {
+            return false;
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
 
-  const deleteTransaction = useCallback((transactionId: string) => {
-    setTransactionsData(prev => prev.filter(t => t.id !== transactionId));
-  }, []);
+    const logout = useCallback(() => {
+        setCurrentUser(null);
+        setUsers([]);
+        setBranches([]);
+        setCategories([]);
+        setAllTransactions([]);
+    }, []);
+    
+    const resetData = useCallback(async () => {
+       if (window.confirm("Yakin ingin mereset semua data di Google Sheet? Aksi ini tidak dapat dibatalkan.")) {
+            setIsLoading(true);
+            try {
+                const data = await callApi('resetData');
+                 setUsers(data.users || []);
+                setBranches(data.branches || []);
+                setCategories(data.categories || []);
+                setAllTransactions(data.allTransactions || []);
+                alert('Data berhasil direset.');
+            } catch (error) {
+                alert('Gagal mereset data.');
+            } finally {
+                setIsLoading(false);
+            }
+       }
+    }, []);
 
-  const addCategory = useCallback((categoryData: Omit<Category, 'id'>) => {
-    const newCategory: Category = {
-        id: `c${Date.now()}`,
-        ...categoryData,
-    };
-    setCategories(prev => [...prev, newCategory]);
-  }, []);
+    const updateUser = useCallback(async (updatedUser: User) => {
+        if (currentUser && currentUser.id === updatedUser.id) {
+            const data = await callApi('updateUser', { user: updatedUser });
+            setUsers(prev => prev.map(u => u.id === data.user.id ? data.user : u));
+            setCurrentUser(data.user);
+        }
+    }, [currentUser]);
 
-  const updateCategory = useCallback((updatedCategory: Category) => {
-      setCategories(prev => prev.map(c => c.id === updatedCategory.id ? updatedCategory : c));
-  }, []);
+    const addTransaction = useCallback(async (transaction: Omit<Transaction, 'id' | 'createdBy'>) => {
+        if (!currentUser) return;
+        const newTransactionData = { ...transaction, createdBy: currentUser.id };
+        const data = await callApi('addTransaction', { transaction: newTransactionData });
+        setAllTransactions(prev => [...prev, data.newTransaction]);
+    }, [currentUser]);
 
-  const deleteCategory = useCallback((categoryId: string) => {
-      setCategories(prev => prev.filter(c => c.id !== categoryId));
-  }, []);
+    const updateTransaction = useCallback(async (transaction: Transaction) => {
+         const data = await callApi('updateTransaction', { transaction });
+         setAllTransactions(prev => prev.map(t => t.id === data.updatedTransaction.id ? data.updatedTransaction : t));
+    }, []);
 
-  const addBranch = useCallback((branchData: Omit<Branch, 'id'>): Branch => {
-    const newBranch: Branch = {
-        id: `b${Date.now()}`,
-        ...branchData,
-    };
-    setBranches(prev => [newBranch, ...prev]);
-    return newBranch;
-  }, []);
+    const deleteTransaction = useCallback(async (id: string) => {
+        await callApi('deleteTransaction', { id });
+        setAllTransactions(prev => prev.filter(t => t.id !== id));
+    }, []);
 
-  const updateBranch = useCallback((updatedBranch: Branch) => {
-    setBranches(prev => prev.map(b => b.id === updatedBranch.id ? updatedBranch : b));
-  }, []);
+    const addCategory = useCallback(async (category: Omit<Category, 'id'>) => {
+        const data = await callApi('addCategory', { category });
+        setCategories(prev => [...prev, data.newCategory]);
+    }, [])
+    const updateCategory = useCallback(async (category: Category) => {
+        const data = await callApi('updateCategory', { category });
+        setCategories(prev => prev.map(c => c.id === data.updatedCategory.id ? data.updatedCategory : c));
+    }, [])
+    const deleteCategory = useCallback(async (id: string) => {
+        await callApi('deleteCategory', { id });
+        setCategories(prev => prev.filter(c => c.id !== id));
+    }, [])
 
-  const addUser = useCallback((userData: Omit<User, 'id' | 'lastLogin'>) => {
-      const newUser: User = {
-          id: `u${Date.now()}`,
-          ...userData,
-          lastLogin: new Date().toISOString(),
-      };
-      setUsers(prev => [newUser, ...prev]);
-  }, []);
+    const addBranch = useCallback(async (branch: Omit<Branch, 'id'>) => {
+        const data = await callApi('addBranch', { branch });
+        setBranches(prev => [...prev, data.newBranch]);
+    }, [])
+    const updateBranch = useCallback(async (branch: Branch) => {
+        const data = await callApi('updateBranch', { branch });
+        setBranches(prev => prev.map(b => b.id === data.updatedBranch.id ? data.updatedBranch : b));
+    }, [])
+    const deleteBranch = useCallback(async (id: string) => {
+        const data = await callApi('deleteBranch', { id });
+        setBranches(data.branches);
+        setUsers(data.users);
+        setAllTransactions(data.allTransactions);
+    }, [])
 
-  const updateUser = useCallback((updatedUser: User) => {
-    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
-    if (currentUser && updatedUser.id === currentUser.id) {
-      setCurrentUser(updatedUser);
-    }
-  }, [currentUser]);
-  
-  const deleteBranchAndUser = useCallback((branchId: string) => {
-    const userToDelete = users.find(u => u.branchId === branchId);
-    setBranches(prev => prev.filter(b => b.id !== branchId));
-    if (userToDelete) {
-      setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
-    }
-  }, [users]);
+    const addUser = useCallback(async (user: Omit<User, 'id'>) => {
+        const data = await callApi('addUser', { user });
+        setUsers(prev => [...prev, data.newUser]);
+    }, [])
+    const updateUserByAdmin = useCallback(async (user: User) => {
+        const data = await callApi('updateUserByAdmin', { user });
+        setUsers(prev => prev.map(u => u.id === data.updatedUser.id ? data.updatedUser : u));
+    }, [])
+    const deleteUser = useCallback(async (id: string) => {
+        await callApi('deleteUser', { id });
+        setUsers(prev => prev.filter(u => u.id !== id));
+    }, [])
+    
+    const value = useMemo(() => {
+        const transactions = currentUser?.role === Role.Admin 
+            ? allTransactions 
+            : allTransactions.filter(t => t.branchId === currentUser?.branchId);
+        
+        return {
+            currentUser,
+            isLoading,
+            users,
+            branches,
+            categories,
+            transactions,
+            allTransactions,
+            login,
+            logout,
+            resetData,
+            updateUser,
+            addTransaction,
+            updateTransaction,
+            deleteTransaction,
+            addCategory,
+            updateCategory,
+            deleteCategory,
+            addBranch,
+            updateBranch,
+            deleteBranch,
+            addUser,
+            updateUserByAdmin,
+            deleteUser,
+        };
+    }, [
+        currentUser, isLoading, users, branches, categories, allTransactions,
+        login, logout, resetData, updateUser, addTransaction, updateTransaction,
+        deleteTransaction, addCategory, updateCategory, deleteCategory, addBranch,
+        updateBranch, deleteBranch, addUser, updateUserByAdmin, deleteUser
+    ]);
 
-  const visibleTransactions = useMemo(() => {
-    if (!currentUser) return [];
-    if (currentUser.role === Role.Admin) return transactionsData;
-    return transactionsData.filter(t => t.branchId === currentUser.branchId);
-  }, [currentUser, transactionsData]);
-
-  const value = useMemo(() => ({
-    currentUser,
-    users,
-    branches,
-    transactions: visibleTransactions,
-    allTransactions: transactionsData,
-    categories,
-    login,
-    logout,
-    resetData,
-    addTransaction,
-    updateTransaction,
-    deleteTransaction,
-    addCategory,
-    updateCategory,
-    deleteCategory,
-    addBranch,
-    updateBranch,
-    addUser,
-    updateUser,
-    deleteBranchAndUser,
-  }), [
-      currentUser, users, branches, visibleTransactions, transactionsData, categories,
-      login, logout, resetData, addTransaction, updateTransaction, deleteTransaction, 
-      addCategory, updateCategory, deleteCategory, addBranch, updateBranch, 
-      addUser, updateUser, deleteBranchAndUser
-  ]);
-
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+    return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

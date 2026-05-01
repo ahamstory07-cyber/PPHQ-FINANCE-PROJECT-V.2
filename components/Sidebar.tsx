@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Logo, HomeIcon, IncomeIcon, ExpenseIcon, CashFlowIcon, BranchIcon, UserIcon, GiftIcon, CategoryIcon } from '../constants';
+import { Logo, HomeIcon, IncomeIcon, ExpenseIcon, CashFlowIcon, BranchIcon, UserIcon, GiftIcon, CategoryIcon, SettingsIcon } from '../constants';
 import { useAppContext } from '../hooks/useAppContext';
 import { Role } from '../types';
 
@@ -46,6 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
         { to: '/cash-flow', icon: <CashFlowIcon className="w-5 h-5" />, label: 'Arus Kas', roles: [Role.Admin, Role.BranchUser] },
         { to: '/categories', icon: <CategoryIcon className="w-5 h-5" />, label: 'Manajemen Kategori', roles: [Role.Admin] },
         { to: '/branches', icon: <BranchIcon className="w-5 h-5" />, label: 'Manajemen Cabang & Pengguna', roles: [Role.Admin] },
+        { to: '/settings', icon: <SettingsIcon className="w-5 h-5" />, label: 'Pengaturan', roles: [Role.Admin] },
     ];
     
     return (

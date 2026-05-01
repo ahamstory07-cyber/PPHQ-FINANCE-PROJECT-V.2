@@ -8,16 +8,21 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { login } = useAppContext();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (login(email, password)) {
+    setIsLoading(true);
+    setError('');
+    const success = await login(email, password);
+    if (success) {
       navigate('/');
     } else {
       setError('Email atau kata sandi salah, atau akun tidak aktif.');
     }
+    setIsLoading(false);
   };
 
   return (
@@ -91,9 +96,10 @@ const Login = () => {
           <div>
             <button
               type="submit"
-              className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+              disabled={isLoading}
+              className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors disabled:bg-primary/50 disabled:cursor-not-allowed"
             >
-              Masuk
+              {isLoading ? 'Memproses...' : 'Masuk'}
             </button>
           </div>
         </form>
