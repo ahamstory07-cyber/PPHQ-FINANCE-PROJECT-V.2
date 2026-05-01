@@ -16,12 +16,16 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     email TEXT UNIQUE,
+    password TEXT,
     name TEXT,
     role TEXT,
     branchId TEXT,
     isActive INTEGER DEFAULT 1
   );
 
+  -- Ensure password column exists (for existing database)
+  -- SQLite ignore if already exists pattern isn't simple, so we just try/catch in code or keep it simple.
+  
   CREATE TABLE IF NOT EXISTS transactions (
     id TEXT PRIMARY KEY,
     date TEXT,
@@ -48,9 +52,16 @@ db.exec(`
   );
 
   -- Insert default admin if no users exist
-  INSERT OR IGNORE INTO users (id, email, name, role, isActive) 
-  VALUES ('admin-1', 'admin@pphq.org', 'Super Admin', 'Admin', 1);
+  INSERT OR IGNORE INTO users (id, email, password, name, role, isActive) 
+  VALUES ('admin-1', 'admin@pphq.org', 'admin123', 'Super Admin', 'Admin', 1);
 `);
+
+// Pastikan kolom password ada di database lama
+try {
+  db.exec("ALTER TABLE users ADD COLUMN password TEXT");
+} catch (e) {
+  // Kolom mungkin sudah ada, abaikan error
+}
 
 async function startServer() {
   const app = express();
@@ -73,10 +84,17 @@ async function startServer() {
       }
 
       if (action === "login") {
-        const { email } = payload;
+        const { email, password } = payload;
         const user = db.prepare("SELECT * FROM users WHERE email = ? AND isActive = 1").get(email);
+        
         if (user) {
-          return res.json({ status: "success", data: { user } });
+          // Cek password. Jika di DB belum ada password, kita anggap passwordnya 'admin123' untuk admin default
+          const validPassword = user.password || 'admin123';
+          if (validPassword === password) {
+            return res.json({ status: "success", data: { user } });
+          } else {
+            return res.json({ status: "error", message: "Kata sandi salah." });
+          }
         } else {
           return res.json({ status: "error", message: "User tidak ditemukan atau tidak aktif." });
         }
