@@ -1,22 +1,15 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback, PropsWithChildren, useMemo } from 'react';
 import { AppContextType, User, Branch, Category, Transaction, Role, TransactionType, TransactionNature } from '../types';
 
-// IMPORTANT: Replace this URL with your actual deployed Google Apps Script web app URL.
-// It's recommended to store this in an environment variable, e.g., import.meta.env.VITE_APP_SCRIPT_URL
-const APP_SCRIPT_URL = (import.meta as any).env?.VITE_APP_SCRIPT_URL || 'YOUR_GOOGLE_APP_SCRIPT_WEB_APP_URL';
+// Arahkan ke API server lokal yang jalan di VPS kita sendiri
+const API_URL = '/api/action';
 
-// This helper function standardizes API calls to your Google Apps Script backend.
-// Your Apps Script should be set up to receive a POST request with a JSON body
-// containing an `action` and an optional `payload`.
 const callApi = async (action: string, payload?: any) => {
     try {
-        // In a real app, you might include an auth token for security
-        const response = await fetch(APP_SCRIPT_URL, {
+        const response = await fetch(API_URL, {
             method: 'POST',
-            // Using 'text/plain' is often more reliable with Apps Script web apps
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action, payload }),
-            redirect: 'follow', // Follow redirects, which Apps Script might do
         });
 
         if (!response.ok) {
@@ -32,10 +25,10 @@ const callApi = async (action: string, payload?: any) => {
         return result.data;
     } catch (error) {
         console.error(`API Error on action "${action}":`, error);
-        alert(`Terjadi kesalahan pada server saat melakukan aksi: ${action}. Lihat konsol untuk detail.`);
         throw error;
     }
 };
+
 
 const defaultContextValue: AppContextType = {
   currentUser: null,
